@@ -23,3 +23,38 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
         sendResponse(res, { message: "Internal server fault", error: true }, 500);
     }
 };
+
+
+
+import { signToken } from "../../utils/jwt";
+import bcrypt from "bcrypt";
+
+export const login = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { email, password } = req.body;
+        const identityMatch = await authService.findUserByEmail(email);
+
+        if (!identityMatch) {
+            sendResponse(res, { message: "Bad request for login inputs" }, 401);
+            return;
+        }
+
+        const validPass = await bcrypt.compare(password, identityMatch.password);
+        if (!validPass) {
+            sendResponse(res, { message: "Bad request for login inputs" }, 401);
+            return;
+        }
+
+        const token = signToken({ id: identityMatch.id, name: identityMatch.name, role: identityMatch.role });
+        
+  
+        const { password: _, ...securedUserOutput } = identityMatch;
+
+        sendResponse(res, {
+            message: "Authentication tokens dispatched",
+            data: { token, user: securedUserOutput }
+        });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server fault", error: true }, 500);
+    }
+};

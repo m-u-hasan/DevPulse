@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 
 class AuthService {
     async registerUser(name: string, email: string, pass: string, role?: UserRole) {
-        const saltRound = 10; 
+        const saltRound = 10;
         const hash = await bcrypt.hash(pass, saltRound);
         const userRole = role || "contributor";
 
