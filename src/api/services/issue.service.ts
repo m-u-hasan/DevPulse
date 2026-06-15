@@ -48,7 +48,33 @@ class IssueService {
         const queryResult = await pool.query(sqlStatement, parameters);
         return queryResult.rows;
     }
+//design flexible database mutation engines for patch requests
 
+async saveIssueUpdates(id: number, activeFields: any): Promise<any> {
+        const syntaxTokens: string[] = [];
+        const argumentValues: any[] = [];
+        let variableCounter = 1;
+
+        Object.entries(activeFields).forEach(([property, value]) => {
+            if (value !== undefined) {
+                syntaxTokens.push(`${property} = $${variableCounter}`);
+                argumentValues.push(value);
+                variableCounter++;
+            }
+        });
+
+        if (syntaxTokens.length === 0) return null;
+        argumentValues.push(id);
+
+        const sql = `UPDATE issues SET ${syntaxTokens.join(", ")}, updated_at = NOW() WHERE id = $${variableCounter} RETURNING *;`;
+        const actionResult = await pool.query(sql, argumentValues);
+        return actionResult.rows[0] || null;
+    }
+
+    async removeIssue(id: number): Promise<boolean> {
+        const status = await pool.query(`DELETE FROM issues WHERE id = $1;`, [id]);
+        return (status.rowCount ?? 0) > 0;
+    }
 
 }
 
