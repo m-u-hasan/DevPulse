@@ -40,6 +40,7 @@ The content is organized as follows:
 </file_summary>
 
 <directory_structure>
+.gitignore
 package.json
 src/api/controllers/auth.controller.ts
 src/api/services/auth.service.ts
@@ -59,35 +60,22 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
-<file path="package.json">
-{
-  "name": "devpulse",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
-  },
-  "dependencies": {
-    "bcrypt": "^5.1.1",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^5.0.1",
-    "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.5"
-  },
-  "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/jsonwebtoken": "^9.0.6",
-    "@types/node": "^20.11.30",
-    "@types/pg": "^8.11.4",
-    "tsx": "^4.7.1",
-    "typescript": "^5.4.3"
-  }
-}
+<file path=".gitignore">
+# ==========================================
+# DevPulse Project - Git Ignore Specifications
+# ==========================================
+
+# 1. Dependency Directories 
+node_modules/
+jspm_packages/
+web_modules/
+
+# 2. Production Build 
+out/
+*.tsbuildinfo
+
+# 3. Environment Variables & Secrets 
+.env
 </file>
 
 <file path="src/app.ts">
@@ -243,6 +231,65 @@ export function sendResponse<T>(
 }
 </file>
 
+<file path="package.json">
+{
+  "name": "devpulse",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.5"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.11.30",
+    "@types/pg": "^8.11.4",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.3"
+  }
+}
+</file>
+
+<file path="src/api/services/auth.service.ts">
+import { pool } from "../../db";
+import type { UserRole } from "../../types";
+import bcrypt from "bcrypt";
+
+class AuthService {
+    async registerUser(name: string, email: string, pass: string, role?: UserRole) {
+        const saltRound = 10;
+        const hash = await bcrypt.hash(pass, saltRound);
+        const userRole = role || "contributor";
+
+        const sql = `
+            INSERT INTO users (name, email, password, role)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, name, email, role, created_at, updated_at;
+        `;
+        const result = await pool.query(sql, [name, email, hash, userRole]);
+        return result.rows[0] || null;
+    }
+
+    async findUserByEmail(email: string) {
+        const result = await pool.query(`SELECT * FROM users WHERE email = $1;`, [email]);
+        return result.rows[0] || null;
+    }
+}
+export default new AuthService();
+</file>
+
 <file path="src/api/controllers/auth.controller.ts">
 import type { Request, Response } from "express";
 import authService from "../services/auth.service";
@@ -307,34 +354,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 </file>
 
-<file path="src/api/services/auth.service.ts">
-import { pool } from "../../db";
-import type { UserRole } from "../../types";
-import bcrypt from "bcrypt";
-
-class AuthService {
-    async registerUser(name: string, email: string, pass: string, role?: UserRole) {
-        const saltRound = 10;
-        const hash = await bcrypt.hash(pass, saltRound);
-        const userRole = role || "contributor";
-
-        const sql = `
-            INSERT INTO users (name, email, password, role)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, name, email, role, created_at, updated_at;
-        `;
-        const result = await pool.query(sql, [name, email, hash, userRole]);
-        return result.rows[0] || null;
-    }
-
-    async findUserByEmail(email: string) {
-        const result = await pool.query(`SELECT * FROM users WHERE email = $1;`, [email]);
-        return result.rows[0] || null;
-    }
-}
-export default new AuthService();
-</file>
-
 <file path="src/db/index.ts">
 import { Pool } from "pg";
 import config from "../config";
@@ -385,8 +404,8 @@ export const initDB = async (): Promise<void> => {
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ES2022", // 
+    "moduleResolution": "Bundler", // 
     "target": "ES2022",
     "esModuleInterop": true,
     "strict": true,
