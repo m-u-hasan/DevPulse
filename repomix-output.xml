@@ -1,0 +1,876 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.gitignore
+package.json
+README.md
+src/api/controllers/auth.controller.ts
+src/api/controllers/issue.controller.ts
+src/api/routes/auth.routes.ts
+src/api/routes/issue.routes.ts
+src/api/services/auth.service.ts
+src/api/services/issue.service.ts
+src/app.ts
+src/config/index.ts
+src/db/index.ts
+src/middleware/auth.middleware.ts
+src/middleware/globalErrorHandler.ts
+src/server.ts
+src/types/express.d.ts
+src/types/index.ts
+src/utils/jwt.ts
+src/utils/sendResponse.ts
+tsconfig.json
+tsup.config.ts
+vercel.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="README.md">
+# DevPulse Enterprise Issue Tracker
+
+An elite-tier, high-performance, AI-driven asynchronous issue tracking and metrics management system engineered using **Node.js (TypeScript)**, **Express.js**, and raw **PostgreSQL**. 
+
+This system features a highly optimized distributed memory application-level data stitching engine (In-Memory Hash Mapping Architecture) designed to bypass traditional heavy database joins (`SQL JOIN`), enabling lightning-fast operations and linear database scaling.
+
+---
+
+## 🚀 Live Environment Architecture
+* **Production Core API URL:** `http://localhost:5000`
+* **API Version:** `v1.0.0`
+* **Environment Status:** Active / Production Ready
+
+---
+
+## 🛠️ Tech Stack & Architecture Matrix
+
+### Backend Core Engine
+* **Language Runtime:** TypeScript / Node.js (ES2022 / ESM System)
+* **Application Framework:** Express.js (Strict Typing Configuration)
+* **Execution Watcher:** `tsx` (TypeScript Execute Core)
+
+### Database Infrastructure
+* **Engine:** PostgreSQL 16+ Core
+* **Driver Interface:** `pg` (Node-Postgres Native Driver Pool)
+* **Connection Pooling:** Dynamic Elastic Resource Pool Management
+
+### Security & Optimization Layers
+* **Identity Validation:** JSON Web Token (JWT) asymmetric signature verification
+* **Cryptographic Hashing:** `bcrypt` (Adaptive workload structural salt configuration)
+* **Data Synthesis Engine:** Application-Level Inline Index Memory Stitching ($O(1)$ Hash Map Resolution)
+
+---
+
+## 🔥 Enterprise Engineering Features
+* **Zero-Join Structural Stitching:** Combines normalized issue metrics and user metadata dynamically at the application level via an in-memory memory map, preventing index scan delays on database clusters.
+* **Granular Role-Based Access Control (RBAC):** Rigid separation of operational capabilities between `contributor` and `maintainer` records.
+* **Deterministic Filtering & Sequence Engines:** Bulletproof scan pipelines implementing strict parameters for types, workflow state-machines, and creation timelines.
+* **State & Data Mutability Guardrails:** Contributor records are completely locked from altering system workflow properties (`status`), and mutations are permitted strictly for owned logs that remain in an `open` state.
+
+---
+
+## 🗄️ Database Schema Topology
+
+The database enforces a clean relational footprint utilizing structured referential integrity without reliance on heavy views or redundant denormalized properties.
+
+### 1. `users` Table
+| Column Name  | Data Type  | Constraints / Modifiers |
+| :--- | :--- | :--- |
+| `id` | `SERIAL` | `PRIMARY KEY` |
+| `name` | `VARCHAR(100)` | `NOT NULL` |
+| `email` | `VARCHAR(255)` | `UNIQUE` / `NOT NULL` |
+| `password` | `TEXT` | `NOT NULL` (Bcrypt Encrypted Hash) |
+| `role` | `VARCHAR(20)` | `NOT NULL` / `DEFAULT 'contributor'` |
+| `created_at` | `TIMESTAMP` | `NOT NULL` / `DEFAULT NOW()` |
+| `updated_at` | `TIMESTAMP` | `NOT NULL` / `DEFAULT NOW()` |
+
+### 2. `issues` Table
+| Column Name  | Data Type  | Constraints / Modifiers |
+| :--- | :--- | :--- |
+| `id` | `SERIAL` | `PRIMARY KEY` |
+| `title` | `VARCHAR(150)` | `NOT NULL` |
+| `description`| `TEXT` | `NOT NULL` |
+| `type` | `VARCHAR(20)` | `NOT NULL` (`bug` \| `feature`) |
+| `status` | `VARCHAR(20)` | `NOT NULL` / `DEFAULT 'open'` (`open` \| `in_progress` \| `resolved`) |
+| `reporter_id`| `INT` | `NOT NULL` / `REFERENCES users(id) ON DELETE CASCADE` |
+| `created_at` | `TIMESTAMP` | `NOT NULL` / `DEFAULT NOW()` |
+| `updated_at` | `TIMESTAMP` | `NOT NULL` / `DEFAULT NOW()` |
+
+---
+
+## ⚙️ Local Infrastructure Setup Steps
+
+Execute these sequential instructions inside your enterprise shell terminal to build the infrastructure layout from base configurations:
+
+### 1. Clone & Access the Directory
+```bash
+git clone <your-repository-url>
+cd devpulse
+</file>
+
+<file path="src/api/routes/auth.routes.ts">
+import { Router } from "express";
+import { login, signup } from "../controllers/auth.controller";
+
+const router = Router();
+router.post("/signup", signup);
+router.post("/login", login);
+
+export default router;
+</file>
+
+<file path="src/middleware/auth.middleware.ts">
+import type { Request, Response, NextFunction } from "express";
+import { verifyToken } from "../utils/jwt";
+import { sendResponse } from "../utils/sendResponse";
+import type { UserRole } from "../types";
+
+export const authGuard = (authorizedRoles?: UserRole[]) => {
+    return (req: Request, res: Response, next: NextFunction): void => {
+        const authorizationHeader = req.headers.authorization;
+
+        if (!authorizationHeader) {
+            sendResponse(res, { message: "Authorization credential tokens missing" }, 401);
+            return;
+        }
+
+        const tokenSegments = authorizationHeader.split(" ");
+        const extractedToken = tokenSegments.length === 2 ? tokenSegments[1] : tokenSegments[0];
+
+        const sessionPayload = verifyToken(extractedToken);
+        if (!sessionPayload) {
+            sendResponse(res, { message: "Token signature validation failed" }, 401);
+            return;
+        }
+
+        req.user = sessionPayload;
+
+        if (authorizedRoles && !authorizedRoles.includes(sessionPayload.role)) {
+            sendResponse(res, { message: "Access roles criteria constraint" }, 403);
+            return;
+        }
+
+        next();
+    };
+};
+</file>
+
+<file path="src/types/express.d.ts">
+import { JwtPayload } from "./index";
+
+declare global {
+    namespace Express {
+        interface Request {
+            user?: JwtPayload;
+        }
+    }
+}
+</file>
+
+<file path="src/types/index.ts">
+export type UserRole = "contributor" | "maintainer";
+export type IssueType = "bug" | "feature";
+export type IssueStatus = "open" | "in_progress" | "resolved";
+
+export interface JwtPayload {
+    id: number;
+    name: string;
+    role: UserRole;
+}
+</file>
+
+<file path="src/utils/jwt.ts">
+import jwt from "jsonwebtoken";
+import config from "../config";
+import type { JwtPayload } from "../types";
+
+export const signToken = (payload: JwtPayload): string => {
+    return jwt.sign(payload, config.jwt_secret, { expiresIn: "1d" });
+};
+
+export const verifyToken = (token: string): JwtPayload | null => {
+    try {
+        return jwt.verify(token, config.jwt_secret) as JwtPayload;
+    } catch {
+        return null;
+    }
+};
+</file>
+
+<file path="src/utils/sendResponse.ts">
+import type { Response } from "express";
+
+export function sendResponse<T>(
+    res: Response,
+    { message, data, error }: { message: string; data?: T; error?: boolean },
+    status = 200,
+): void {
+    res.status(status).json({
+        success: !error,
+        message,
+        data: error ? undefined : data,
+    });
+}
+</file>
+
+<file path="tsup.config.ts">
+import { defineConfig } from "tsup";
+
+
+
+
+
+export default defineConfig({
+
+    entry: ["src/server.ts"],
+
+    format: ["esm"], // Keep this as ESM
+
+    target: "esnext",
+
+    outDir: "dist",
+
+    clean: true,
+
+    bundle: true,
+
+    splitting: false,
+
+    sourcemap: true,
+
+    // Add this banner to shim require() for CJS dependencies
+
+    banner: {
+
+        js: `
+
+   import { createRequire } from 'module';
+
+   const require = createRequire(import.meta.url);
+
+  `,
+
+    },
+
+});
+</file>
+
+<file path=".gitignore">
+# ==========================================
+# DevPulse Project - Git Ignore Specifications
+# ==========================================
+
+# 1. Dependency Directories 
+node_modules/
+jspm_packages/
+web_modules/
+
+# 2. Production Build 
+out/
+*.tsbuildinfo
+
+# 3. Environment Variables & Secrets 
+.env
+
+
+
+
+.vercel
+</file>
+
+<file path="src/api/controllers/issue.controller.ts">
+import type { Request, Response } from "express";
+import issueService from "../services/issue.service";
+import { sendResponse } from "../../utils/sendResponse";
+
+export const createIssue = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { title, description, type } = req.body;
+        const reporterId = req.user!.id;
+
+        const issue = await issueService.createIssue(title, description, type, reporterId);
+        sendResponse(res, { message: "Issue logged successfully", data: issue }, 201);
+    } catch (error) {
+        sendResponse(res, { message: "Internal server error", error: true }, 500);
+    }
+};
+
+export const getSingleIssue = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = parseInt(req.params.id);
+        const issue = await issueService.getIssueById(id);
+
+        if (!issue) {
+            sendResponse(res, { message: "Issue registry not found" }, 404);
+            return;
+        }
+
+        const users = await issueService.fetchUsersBatch([issue.reporter_id]);
+        const { reporter_id, ...issueData } = issue;
+
+        const payload = {
+            ...issueData,
+            reporter: users[0] || null
+        };
+
+        sendResponse(res, { message: "Issue data compiled successfully", data: payload });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server error", error: true }, 500);
+    }
+};
+
+export const getAllIssues = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const sortParam = req.query.sort as string | undefined;
+        const typeParam = req.query.type as string | undefined;
+        const statusParam = req.query.status as string | undefined;
+
+        const issuesList = await issueService.scanAllIssues({
+            sort: sortParam,
+            type: typeParam,
+            status: statusParam
+        });
+
+        const distinctReporterIds = issuesList.map((item: any) => item.reporter_id);
+        const collectiveUsers = await issueService.resolveUsersInBatch(distinctReporterIds);
+
+        const internalUserMap: any = {};
+        collectiveUsers.forEach((individual: any) => { internalUserMap[individual.id] = individual; });
+
+        const finalizedResultCollection = issuesList.map((issueElement: any) => {
+            const { reporter_id, ...baseData } = issueElement;
+            return {
+                ...baseData,
+                reporter: internalUserMap[reporter_id] || null
+            };
+        });
+
+        sendResponse(res, { message: "Filtered issue logs assembled", data: finalizedResultCollection });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server fault", error: true }, 500);
+    }
+
+};
+
+
+
+//introduce secure multi-tier permission checking on mutating operations
+export const updateIssue = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = parseInt(req.params.id);
+        const operator = req.user!;
+
+        const existingRecord = await issueService.fetchIssueById(id);
+        if (!existingRecord) {
+            sendResponse(res, { message: "Requested reference log empty" }, 404);
+            return;
+        }
+
+        //Requirment check: User contributer as if not maintainer
+        if (operator.role !== "maintainer") {
+            //Cant change another users issues
+            if (existingRecord.reporter_id !== operator.id) {
+                sendResponse(res, { message: "Forbidden: Data ownership violation" }, 403);
+                return;
+            }
+            //Check issue open 
+            if (existingRecord.status !== "open") {
+                sendResponse(res, { message: "Conflict: Log locked from non-maintainer update" }, 409);
+                return;
+            }
+            //
+            if (req.body.status && req.body.status !== existingRecord.status) {
+                sendResponse(res, { message: "Forbidden: Workflow status can only be managed by maintainers" }, 403);
+                return;
+            }
+        }
+
+        const freshlyUpdatedRecord = await issueService.saveIssueUpdates(id, req.body);
+        sendResponse(res, { message: "Issue details updated successfully", data: freshlyUpdatedRecord });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server fault", error: true }, 500);
+    }
+};
+
+export const deleteIssue = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = parseInt(req.params.id);
+        const logExists = await issueService.fetchIssueById(id);
+
+        if (!logExists) {
+            sendResponse(res, { message: "Requested reference log empty" }, 404);
+            return;
+        }
+
+        await issueService.removeIssue(id);
+        sendResponse(res, { message: "Target row permanently erased" });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server fault", error: true }, 500);
+    }
+};
+</file>
+
+<file path="src/api/routes/issue.routes.ts">
+import { Router } from "express";
+
+import { createIssue, deleteIssue, getAllIssues, getSingleIssue, updateIssue } from "../controllers/issue.controller";
+import { authGuard } from "../../middleware/auth.middleware";
+
+const router = Router();
+
+//Create new issues, login, contribute or maintainer 
+router.post("/", authGuard(["contributor", "maintainer"]), createIssue);
+
+//Get all or single issue
+router.get("/", getAllIssues);
+router.get("/:id", getSingleIssue);
+
+//As contributor or maintainer update 
+router.patch("/:id", authGuard(["contributor", "maintainer"]), updateIssue);
+
+// Delete for only maintainer
+router.delete("/:id", authGuard(["maintainer"]), deleteIssue);
+
+export default router;
+</file>
+
+<file path="src/api/services/auth.service.ts">
+import { pool } from "../../db";
+import type { UserRole } from "../../types";
+import bcrypt from "bcrypt";
+
+class AuthService {
+    async registerUser(name: string, email: string, pass: string, role?: UserRole) {
+        const saltRound = 10;
+        const hash = await bcrypt.hash(pass, saltRound);
+        const userRole = role || "contributor";
+
+        const sql = `
+            INSERT INTO users (name, email, password, role)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, name, email, role, created_at, updated_at;
+        `;
+        const result = await pool.query(sql, [name, email, hash, userRole]);
+        return result.rows[0] || null;
+    }
+
+    async findUserByEmail(email: string) {
+        const result = await pool.query(`SELECT * FROM users WHERE email = $1;`, [email]);
+        return result.rows[0] || null;
+    }
+}
+export default new AuthService();
+</file>
+
+<file path="src/app.ts">
+import express, { type Application } from "express";
+import cors from "cors";
+import { globalErrorHandler } from "./middleware/globalErrorHandler";
+import authRoutes from "./api/routes/auth.routes";
+import issueRoutes from "./api/routes/issue.routes";
+
+const app: Application = express();
+
+app.use(cors());
+app.use(express.json());
+
+// Route Mounting
+app.use("/api/auth", authRoutes);
+app.use("/api/issues", issueRoutes);
+
+app.get("/health", (req, res) => {
+    res.status(200).json({ success: true, status: "DevPulse API is active and running" });
+});
+
+app.use(globalErrorHandler);
+export default app;
+</file>
+
+<file path="src/config/index.ts">
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const config = {
+    port: (process.env.PORT || 5000) as string | number,
+    database_url: process.env.DATABASE_URL as string,
+    node_env: process.env.NODE_ENV || "development",
+    jwt_secret: process.env.JWT_SECRET as string,
+};
+
+export default config;
+</file>
+
+<file path="src/middleware/globalErrorHandler.ts">
+import type { NextFunction, Request, Response } from "express";
+import config from "../config";
+
+export const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+    const devMode = config.node_env === "development";
+    
+   
+    console.error("🛑 GLOBAL ERROR CATCHER:", err);
+
+    res.status(500).json({
+        success: false,
+ 
+        message: err?.message || (typeof err === "string" ? err : "Fatal App Failure"),
+        errorDetails: devMode ? err : undefined,
+        stack: devMode ? err?.stack : undefined
+    });
+};
+</file>
+
+<file path="src/server.ts">
+import app from "./app";
+import config from "./config";
+import { initDB } from "./db";
+
+
+initDB()
+    .then(() => {
+        console.log("Database initialized successfully.");
+    })
+    .catch((err) => {
+        console.error("Database initialization failed:", err);
+    });
+
+
+if (process.env.NODE_ENV !== "production") {
+    app.listen(config.port, () => {
+        console.log(`Server executing smoothly on ${config.port}`);
+    });
+}
+
+
+export default app;
+</file>
+
+<file path="vercel.json">
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "dist/server.js",
+            "use": "@vercel/node"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "dist/server.js"
+        }
+    ]
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "devpulse",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "start": "node dist/server.js",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.5",
+    "tsup": "^8.5.1"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.11.30",
+    "@types/pg": "^8.11.4",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.3"
+  }
+}
+</file>
+
+<file path="src/db/index.ts">
+import { Pool } from "pg";
+import config from "../config";
+
+export const pool = new Pool({
+    connectionString: config.database_url,
+});
+
+
+export const initDB = async (): Promise<void> => {
+    try {
+
+        await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role VARCHAR(20) NOT NULL DEFAULT 'contributor',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+`);
+
+        await pool.query(`
+    CREATE TABLE IF NOT EXISTS issues (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(150) NOT NULL,
+        description TEXT NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'open',
+        reporter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+`);
+        console.log("Postgres tables successfully created.");
+    }
+    catch (error) {
+        console.error("Database schema boot failed:", error);
+        process.exit(1);
+    }
+};
+</file>
+
+<file path="src/api/controllers/auth.controller.ts">
+import type { Request, Response } from "express";
+import authService from "../services/auth.service";
+import { sendResponse } from "../../utils/sendResponse";
+import { signToken } from "../../utils/jwt";
+import bcrypt from 'bcryptjs';
+
+export const signup = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { name, email, password, role } = req.body;
+
+        // Check if email already exists
+        const uniqueCheck = await authService.findUserByEmail(email);
+        if (uniqueCheck) {
+            sendResponse(res, { message: "Email already registered" }, 400);
+            return;
+        }
+
+        // Register new user profile
+        const registeredProfile = await authService.registerUser(name, email, password, role);
+        if (!registeredProfile) {
+            sendResponse(res, { message: "Registration setup aborted" }, 400);
+            return;
+        }
+
+        sendResponse(res, { message: "Account created successfully", data: registeredProfile }, 201);
+    } catch (error) {
+        console.error("SIGNUP RUNTIME CRASH:", error);
+        sendResponse(res, {
+            message: error instanceof Error ? error.message : "Internal server fault",
+            error: true
+        }, 500);
+    }
+};
+
+export const login = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { email, password } = req.body;
+
+        // Validate input fields
+        if (!email || !password) {
+            sendResponse(res, { message: "Email and password are required fields" }, 400);
+            return;
+        }
+
+        // Check user identity
+        const identityMatch = await authService.findUserByEmail(email);
+        if (!identityMatch) {
+            sendResponse(res, { message: "Bad request for login inputs" }, 401);
+            return;
+        }
+
+        // Verify password hash
+        const validPass = await bcrypt.compare(password, identityMatch.password);
+        if (!validPass) {
+            sendResponse(res, { message: "Bad request for login inputs" }, 401);
+            return;
+        }
+
+        // Generate access token
+        const token = signToken({ id: identityMatch.id, name: identityMatch.name, role: identityMatch.role });
+
+        // Omit password from output
+        const { password: _, ...securedUserOutput } = identityMatch;
+
+        sendResponse(res, {
+            message: "Authentication tokens dispatched",
+            data: { token, user: securedUserOutput }
+        });
+    } catch (error: any) {
+        console.error("CRITICAL LOGIN RUNTIME CRASH:", error);
+
+        sendResponse(res, {
+            message: error?.message || "Internal server fault",
+            error: true,
+            data: error
+        }, 500);
+    }
+};
+</file>
+
+<file path="src/api/services/issue.service.ts">
+import { pool } from "../../db";
+
+class IssueService {
+    async createIssue(title: string, description: string, type: string, reporterId: number) {
+        const query = `
+            INSERT INTO issues (title, description, type, reporter_id)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *;
+        `;
+        const result = await pool.query(query, [title, description, type, reporterId]);
+        return result.rows[0];
+    }
+
+    async getIssueById(id: number) {
+        const result = await pool.query(`SELECT * FROM issues WHERE id = $1;`, [id]);
+        return result.rows[0] || null;
+    }
+
+    async fetchUsersBatch(ids: number[]) {
+        if (ids.length === 0) return [];
+        const uniqueIds = [...new Set(ids)];
+        const placeholders = uniqueIds.map((_, i) => `$${i + 1}`).join(",");
+
+        const query = `SELECT id, name, role FROM users WHERE id IN (${placeholders});`;
+        const result = await pool.query(query, uniqueIds);
+        return result.rows;
+    }
+    //design scalable linear data scanning for raw issue metrics
+    async scanAllIssues(filters: { sort?: string; type?: string; status?: string }): Promise<any[]> {
+        let sqlStatement = `SELECT * FROM issues WHERE 1=1`;
+        const parameters: string[] = [];
+        let indexOffset = 1;
+
+        if (filters.type) {
+            sqlStatement += ` AND type = $${indexOffset}`;
+            parameters.push(filters.type);
+            indexOffset++;
+        }
+        if (filters.status) {
+            sqlStatement += ` AND status = $${indexOffset}`;
+            parameters.push(filters.status);
+            indexOffset++;
+        }
+
+        const sortSequence = filters.sort === "oldest" ? "ASC" : "DESC";
+        sqlStatement += ` ORDER BY created_at ${sortSequence};`;
+
+        const queryResult = await pool.query(sqlStatement, parameters);
+        return queryResult.rows;
+    }
+//design flexible database mutation engines for patch requests
+
+async saveIssueUpdates(id: number, activeFields: any): Promise<any> {
+        const syntaxTokens: string[] = [];
+        const argumentValues: any[] = [];
+        let variableCounter = 1;
+
+        Object.entries(activeFields).forEach(([property, value]) => {
+            if (value !== undefined) {
+                syntaxTokens.push(`${property} = $${variableCounter}`);
+                argumentValues.push(value);
+                variableCounter++;
+            }
+        });
+
+        if (syntaxTokens.length === 0) return null;
+        argumentValues.push(id);
+
+        const sql = `UPDATE issues SET ${syntaxTokens.join(", ")}, updated_at = NOW() WHERE id = $${variableCounter} RETURNING *;`;
+        const actionResult = await pool.query(sql, argumentValues);
+        return actionResult.rows[0] || null;
+    }
+
+    async removeIssue(id: number): Promise<boolean> {
+        const status = await pool.query(`DELETE FROM issues WHERE id = $1;`, [id]);
+        return (status.rowCount ?? 0) > 0;
+    }
+
+}
+
+
+
+export default new IssueService();
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "module": "esnext", // 
+    "moduleResolution": "Bundler", // 
+    "target": "esnext",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types"
+    ]
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": []
+}
+</file>
+
+</files>

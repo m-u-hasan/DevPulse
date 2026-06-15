@@ -1,6 +1,6 @@
 import { pool } from "../../db";
 import type { UserRole } from "../../types";
-import bcrypt from "bcrypt";
+import bcrypt from 'bcryptjs';
 
 class AuthService {
     async registerUser(name: string, email: string, pass: string, role?: UserRole) {

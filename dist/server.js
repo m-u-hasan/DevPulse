@@ -74,7 +74,7 @@ var initDB = async () => {
 };
 
 // src/api/services/auth.service.ts
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 var AuthService = class {
   async registerUser(name, email, pass, role) {
     const saltRound = 10;
@@ -118,7 +118,7 @@ var verifyToken = (token) => {
 };
 
 // src/api/controllers/auth.controller.ts
-import bcrypt2 from "bcrypt";
+import bcrypt2 from "bcryptjs";
 var signup = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -399,11 +399,18 @@ app.use(globalErrorHandler);
 var app_default = app;
 
 // src/server.ts
-var initServer = async () => {
-  await initDB();
+initDB().then(() => {
+  console.log("Database initialized successfully.");
+}).catch((err) => {
+  console.error("Database initialization failed:", err);
+});
+if (process.env.NODE_ENV !== "production") {
   app_default.listen(config_default.port, () => {
     console.log(`Server executing smoothly on ${config_default.port}`);
   });
+}
+var server_default = app_default;
+export {
+  server_default as default
 };
-initServer();
 //# sourceMappingURL=server.js.map

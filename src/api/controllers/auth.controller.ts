@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import authService from "../services/auth.service";
 import { sendResponse } from "../../utils/sendResponse";
 import { signToken } from "../../utils/jwt";
-import bcrypt from "bcrypt";
+import bcrypt from 'bcryptjs';
 
 export const signup = async (req: Request, res: Response): Promise<void> => {
     try {
