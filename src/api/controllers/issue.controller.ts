@@ -40,21 +40,22 @@ export const getSingleIssue = async (req: Request, res: Response): Promise<void>
 
 export const getAllIssues = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { sort, type, status } = req.query;
+        const sortParam = req.query.sort as string | undefined;
+        const typeParam = req.query.type as string | undefined;
+        const statusParam = req.query.status as string | undefined;
+
         const issuesList = await issueService.scanAllIssues({
-            sort: sort as string,
-            type: type as string,
-            status: status as string
+            sort: sortParam,
+            type: typeParam,
+            status: statusParam
         });
 
         const distinctReporterIds = issuesList.map((item: any) => item.reporter_id);
         const collectiveUsers = await issueService.resolveUsersInBatch(distinctReporterIds);
 
-        // O(1) searching hasj
         const internalUserMap: any = {};
         collectiveUsers.forEach((individual: any) => { internalUserMap[individual.id] = individual; });
 
-        // Data stiching in application lavel
         const finalizedResultCollection = issuesList.map((issueElement: any) => {
             const { reporter_id, ...baseData } = issueElement;
             return {
@@ -67,4 +68,5 @@ export const getAllIssues = async (req: Request, res: Response): Promise<void> =
     } catch (error) {
         sendResponse(res, { message: "Internal server fault", error: true }, 500);
     }
+
 };

@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import { createIssue, deleteIssue, getAllIssues, getSingleIssue, updateIssue } from "../controllers/issue.controller";
 import { authGuard } from "../../middleware/auth.middleware";
 
