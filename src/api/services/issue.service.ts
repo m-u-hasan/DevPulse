@@ -25,5 +25,32 @@ class IssueService {
         const result = await pool.query(query, uniqueIds);
         return result.rows;
     }
+//design scalable linear data scanning for raw issue metrics
+async scanAllIssues(filters: { sort?: string; type?: string; status?: string }): Promise<any[]> {
+        let sqlStatement = `SELECT * FROM issues WHERE 1=1`;
+        const parameters: string[] = [];
+        let indexOffset = 1;
+
+        if (filters.type) {
+            sqlStatement += ` AND type = $${indexOffset}`;
+            parameters.push(filters.type);
+            indexOffset++;
+        }
+        if (filters.status) {
+            sqlStatement += ` AND status = $${indexOffset}`;
+            parameters.push(filters.status);
+            indexOffset++;
+        }
+
+        const sortSequence = filters.sort === "oldest" ? "ASC" : "DESC";
+        sqlStatement += ` ORDER BY created_at ${sortSequence};`;
+
+        const queryResult = await pool.query(sqlStatement, parameters);
+        return queryResult.rows;
+    }
 }
+
+
+
 export default new IssueService();
+

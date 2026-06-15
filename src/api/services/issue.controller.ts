@@ -37,3 +37,4 @@ export const getSingleIssue = async (req: Request, res: Response): Promise<void>
         sendResponse(res, { message: "Internal server error", error: true }, 500);
     }
 };
+
