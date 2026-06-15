@@ -1,0 +1,19 @@
+# ==========================================
+# DevPulse Project - Git Ignore Specifications
+# ==========================================
+
+# 1. Dependency Directories 
+node_modules/
+jspm_packages/
+web_modules/
+
+# 2. Production Build 
+out/
+*.tsbuildinfo
+
+# 3. Environment Variables & Secrets 
+.env
+
+
+
+
