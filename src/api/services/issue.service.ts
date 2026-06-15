@@ -25,8 +25,8 @@ class IssueService {
         const result = await pool.query(query, uniqueIds);
         return result.rows;
     }
-//design scalable linear data scanning for raw issue metrics
-async scanAllIssues(filters: { sort?: string; type?: string; status?: string }): Promise<any[]> {
+    //design scalable linear data scanning for raw issue metrics
+    async scanAllIssues(filters: { sort?: string; type?: string; status?: string }): Promise<any[]> {
         let sqlStatement = `SELECT * FROM issues WHERE 1=1`;
         const parameters: string[] = [];
         let indexOffset = 1;
@@ -48,6 +48,8 @@ async scanAllIssues(filters: { sort?: string; type?: string; status?: string }):
         const queryResult = await pool.query(sqlStatement, parameters);
         return queryResult.rows;
     }
+
+
 }
 
 

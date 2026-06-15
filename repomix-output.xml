@@ -43,7 +43,11 @@ The content is organized as follows:
 .gitignore
 package.json
 src/api/controllers/auth.controller.ts
+src/api/routes/auth.routes.ts
+src/api/routes/issue.routes.ts
 src/api/services/auth.service.ts
+src/api/services/issue.controller.ts
+src/api/services/issue.service.ts
 src/app.ts
 src/config/index.ts
 src/db/index.ts
@@ -59,6 +63,40 @@ tsconfig.json
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="src/api/routes/auth.routes.ts">
+import { Router } from "express";
+import { login, signup } from "../controllers/auth.controller";
+
+const router = Router();
+router.post("/signup", signup);
+router.post("/login", login);
+
+export default router;
+</file>
+
+<file path="src/api/routes/issue.routes.ts">
+import { Router } from "express";
+import { createIssue, deleteIssue, getAllIssues, getSingleIssue, updateIssue } from "../controllers/issue.controller";
+import { authGuard } from "../../middleware/auth.middleware";
+
+const router = Router();
+
+//Create new issues, login, contribute or maintainer 
+router.post("/", authGuard(["contributor", "maintainer"]), createIssue);
+
+//Get all or single issue
+router.get("/", getAllIssues);
+router.get("/:id", getSingleIssue);
+
+//As contributor or maintainer update 
+router.patch("/:id", authGuard(["contributor", "maintainer"]), updateIssue);
+
+// Delete for only maintainer
+router.delete("/:id", authGuard(["maintainer"]), deleteIssue);
+
+export default router;
+</file>
 
 <file path=".gitignore">
 # ==========================================
@@ -82,11 +120,21 @@ out/
 import express, { type Application } from "express";
 import cors from "cors";
 import { globalErrorHandler } from "./middleware/globalErrorHandler";
+import authRoutes from "./api/routes/auth.routes";
+import issueRoutes from "./api/routes/issue.routes";
 
 const app: Application = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Route Mounting
+app.use("/api/auth", authRoutes);
+app.use("/api/issues", issueRoutes);
+
+app.get("/health", (req, res) => {
+    res.status(200).json({ success: true, status: "DevPulse API is active and running" });
+});
 
 app.use(globalErrorHandler);
 export default app;
@@ -288,6 +336,139 @@ class AuthService {
     }
 }
 export default new AuthService();
+</file>
+
+<file path="src/api/services/issue.controller.ts">
+import type { Request, Response } from "express";
+import issueService from "../services/issue.service";
+import { sendResponse } from "../../utils/sendResponse";
+
+export const createIssue = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { title, description, type } = req.body;
+        const reporterId = req.user!.id;
+
+        const issue = await issueService.createIssue(title, description, type, reporterId);
+        sendResponse(res, { message: "Issue logged successfully", data: issue }, 201);
+    } catch (error) {
+        sendResponse(res, { message: "Internal server error", error: true }, 500);
+    }
+};
+
+export const getSingleIssue = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = parseInt(req.params.id);
+        const issue = await issueService.getIssueById(id);
+
+        if (!issue) {
+            sendResponse(res, { message: "Issue registry not found" }, 404);
+            return;
+        }
+
+        const users = await issueService.fetchUsersBatch([issue.reporter_id]);
+        const { reporter_id, ...issueData } = issue;
+
+        const payload = {
+            ...issueData,
+            reporter: users[0] || null
+        };
+
+        sendResponse(res, { message: "Issue data compiled successfully", data: payload });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server error", error: true }, 500);
+    }
+};
+
+export const getAllIssues = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { sort, type, status } = req.query;
+        const issuesList = await issueService.scanAllIssues({
+            sort: sort as string,
+            type: type as string,
+            status: status as string
+        });
+
+        const distinctReporterIds = issuesList.map((item: any) => item.reporter_id);
+        const collectiveUsers = await issueService.resolveUsersInBatch(distinctReporterIds);
+
+        // O(1) searching hasj
+        const internalUserMap: any = {};
+        collectiveUsers.forEach((individual: any) => { internalUserMap[individual.id] = individual; });
+
+        // Data stiching in application lavel
+        const finalizedResultCollection = issuesList.map((issueElement: any) => {
+            const { reporter_id, ...baseData } = issueElement;
+            return {
+                ...baseData,
+                reporter: internalUserMap[reporter_id] || null
+            };
+        });
+
+        sendResponse(res, { message: "Filtered issue logs assembled", data: finalizedResultCollection });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server fault", error: true }, 500);
+    }
+};
+</file>
+
+<file path="src/api/services/issue.service.ts">
+import { pool } from "../../db";
+
+class IssueService {
+    async createIssue(title: string, description: string, type: string, reporterId: number) {
+        const query = `
+            INSERT INTO issues (title, description, type, reporter_id)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *;
+        `;
+        const result = await pool.query(query, [title, description, type, reporterId]);
+        return result.rows[0];
+    }
+
+    async getIssueById(id: number) {
+        const result = await pool.query(`SELECT * FROM issues WHERE id = $1;`, [id]);
+        return result.rows[0] || null;
+    }
+
+    async fetchUsersBatch(ids: number[]) {
+        if (ids.length === 0) return [];
+        const uniqueIds = [...new Set(ids)];
+        const placeholders = uniqueIds.map((_, i) => `$${i + 1}`).join(",");
+
+        const query = `SELECT id, name, role FROM users WHERE id IN (${placeholders});`;
+        const result = await pool.query(query, uniqueIds);
+        return result.rows;
+    }
+    //design scalable linear data scanning for raw issue metrics
+    async scanAllIssues(filters: { sort?: string; type?: string; status?: string }): Promise<any[]> {
+        let sqlStatement = `SELECT * FROM issues WHERE 1=1`;
+        const parameters: string[] = [];
+        let indexOffset = 1;
+
+        if (filters.type) {
+            sqlStatement += ` AND type = $${indexOffset}`;
+            parameters.push(filters.type);
+            indexOffset++;
+        }
+        if (filters.status) {
+            sqlStatement += ` AND status = $${indexOffset}`;
+            parameters.push(filters.status);
+            indexOffset++;
+        }
+
+        const sortSequence = filters.sort === "oldest" ? "ASC" : "DESC";
+        sqlStatement += ` ORDER BY created_at ${sortSequence};`;
+
+        const queryResult = await pool.query(sqlStatement, parameters);
+        return queryResult.rows;
+    }
+
+
+}
+
+
+
+export default new IssueService();
 </file>
 
 <file path="src/api/controllers/auth.controller.ts">
