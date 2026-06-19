@@ -319,138 +319,6 @@ out/
 .vercel
 </file>
 
-<file path="src/api/controllers/issue.controller.ts">
-import type { Request, Response } from "express";
-import issueService from "../services/issue.service";
-import { sendResponse } from "../../utils/sendResponse";
-
-export const createIssue = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { title, description, type } = req.body;
-        const reporterId = req.user!.id;
-
-        const issue = await issueService.createIssue(title, description, type, reporterId);
-        sendResponse(res, { message: "Issue logged successfully", data: issue }, 201);
-    } catch (error) {
-        sendResponse(res, { message: "Internal server error", error: true }, 500);
-    }
-};
-
-export const getSingleIssue = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const id = parseInt(req.params.id);
-        const issue = await issueService.getIssueById(id);
-
-        if (!issue) {
-            sendResponse(res, { message: "Issue registry not found" }, 404);
-            return;
-        }
-
-        const users = await issueService.fetchUsersBatch([issue.reporter_id]);
-        const { reporter_id, ...issueData } = issue;
-
-        const payload = {
-            ...issueData,
-            reporter: users[0] || null
-        };
-
-        sendResponse(res, { message: "Issue data compiled successfully", data: payload });
-    } catch (error) {
-        sendResponse(res, { message: "Internal server error", error: true }, 500);
-    }
-};
-
-export const getAllIssues = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const sortParam = req.query.sort as string | undefined;
-        const typeParam = req.query.type as string | undefined;
-        const statusParam = req.query.status as string | undefined;
-
-        const issuesList = await issueService.scanAllIssues({
-            sort: sortParam,
-            type: typeParam,
-            status: statusParam
-        });
-
-        const distinctReporterIds = issuesList.map((item: any) => item.reporter_id);
-        const collectiveUsers = await issueService.resolveUsersInBatch(distinctReporterIds);
-
-        const internalUserMap: any = {};
-        collectiveUsers.forEach((individual: any) => { internalUserMap[individual.id] = individual; });
-
-        const finalizedResultCollection = issuesList.map((issueElement: any) => {
-            const { reporter_id, ...baseData } = issueElement;
-            return {
-                ...baseData,
-                reporter: internalUserMap[reporter_id] || null
-            };
-        });
-
-        sendResponse(res, { message: "Filtered issue logs assembled", data: finalizedResultCollection });
-    } catch (error) {
-        sendResponse(res, { message: "Internal server fault", error: true }, 500);
-    }
-
-};
-
-
-
-//introduce secure multi-tier permission checking on mutating operations
-export const updateIssue = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const id = parseInt(req.params.id);
-        const operator = req.user!;
-
-        const existingRecord = await issueService.fetchIssueById(id);
-        if (!existingRecord) {
-            sendResponse(res, { message: "Requested reference log empty" }, 404);
-            return;
-        }
-
-        //Requirment check: User contributer as if not maintainer
-        if (operator.role !== "maintainer") {
-            //Cant change another users issues
-            if (existingRecord.reporter_id !== operator.id) {
-                sendResponse(res, { message: "Forbidden: Data ownership violation" }, 403);
-                return;
-            }
-            //Check issue open 
-            if (existingRecord.status !== "open") {
-                sendResponse(res, { message: "Conflict: Log locked from non-maintainer update" }, 409);
-                return;
-            }
-            //
-            if (req.body.status && req.body.status !== existingRecord.status) {
-                sendResponse(res, { message: "Forbidden: Workflow status can only be managed by maintainers" }, 403);
-                return;
-            }
-        }
-
-        const freshlyUpdatedRecord = await issueService.saveIssueUpdates(id, req.body);
-        sendResponse(res, { message: "Issue details updated successfully", data: freshlyUpdatedRecord });
-    } catch (error) {
-        sendResponse(res, { message: "Internal server fault", error: true }, 500);
-    }
-};
-
-export const deleteIssue = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const id = parseInt(req.params.id);
-        const logExists = await issueService.fetchIssueById(id);
-
-        if (!logExists) {
-            sendResponse(res, { message: "Requested reference log empty" }, 404);
-            return;
-        }
-
-        await issueService.removeIssue(id);
-        sendResponse(res, { message: "Target row permanently erased" });
-    } catch (error) {
-        sendResponse(res, { message: "Internal server fault", error: true }, 500);
-    }
-};
-</file>
-
 <file path="src/api/routes/issue.routes.ts">
 import { Router } from "express";
 
@@ -473,34 +341,6 @@ router.patch("/:id", authGuard(["contributor", "maintainer"]), updateIssue);
 router.delete("/:id", authGuard(["maintainer"]), deleteIssue);
 
 export default router;
-</file>
-
-<file path="src/api/services/auth.service.ts">
-import { pool } from "../../db";
-import type { UserRole } from "../../types";
-import bcrypt from "bcrypt";
-
-class AuthService {
-    async registerUser(name: string, email: string, pass: string, role?: UserRole) {
-        const saltRound = 10;
-        const hash = await bcrypt.hash(pass, saltRound);
-        const userRole = role || "contributor";
-
-        const sql = `
-            INSERT INTO users (name, email, password, role)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, name, email, role, created_at, updated_at;
-        `;
-        const result = await pool.query(sql, [name, email, hash, userRole]);
-        return result.rows[0] || null;
-    }
-
-    async findUserByEmail(email: string) {
-        const result = await pool.query(`SELECT * FROM users WHERE email = $1;`, [email]);
-        return result.rows[0] || null;
-    }
-}
-export default new AuthService();
 </file>
 
 <file path="src/app.ts">
@@ -587,6 +427,195 @@ if (process.env.NODE_ENV !== "production") {
 export default app;
 </file>
 
+<file path="src/api/controllers/issue.controller.ts">
+import type { Request, Response } from "express";
+import issueService from "../services/issue.service";
+import { sendResponse } from "../../utils/sendResponse";
+
+// 1. Create a new issue
+export const createIssue = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { title, description, type } = req.body;
+        const reporterId = req.user!.id;
+
+        const issue = await issueService.createIssue(title, description, type, reporterId);
+        sendResponse(res, { message: "Issue logged successfully", data: issue }, 201);
+    } catch (error) {
+        sendResponse(res, { message: "Internal server error", error: true }, 500);
+    }
+};
+
+// 2. Get a single issue by ID
+export const getSingleIssue = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = parseInt(req.params.id as string);
+        const issue = await issueService.getIssueById(id);
+
+        if (!issue) {
+            sendResponse(res, { message: "Issue registry not found" }, 404);
+            return;
+        }
+
+        const reporterId = issue.reporter_id as number;
+        const users = await issueService.fetchUsersBatch([reporterId]);
+        const { reporter_id, ...issueData } = issue;
+
+        const payload = {
+            ...issueData,
+            reporter: users[0] || null
+        };
+
+        sendResponse(res, { message: "Issue data compiled successfully", data: payload });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server error", error: true }, 500);
+    }
+};
+
+// 3. Get all issues
+export const getAllIssues = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const sortParam = typeof req.query.sort === "string" ? req.query.sort : undefined;
+        const typeParam = typeof req.query.type === "string" ? req.query.type : undefined;
+        const statusParam = typeof req.query.status === "string" ? req.query.status : undefined;
+
+        const finalizedResultCollection = await issueService.scanAllIssues({
+            sort: sortParam,
+            type: typeParam,
+            status: statusParam
+        });
+
+        sendResponse(res, { message: "Filtered issue logs", data: finalizedResultCollection });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server fault", error: true }, 500);
+    }
+};
+
+// 4. Update an issue
+export const updateIssue = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = parseInt(req.params.id as string);
+        const operator = req.user!;
+
+        const existingRecord = await issueService.getIssueById(id);
+        if (!existingRecord) {
+            sendResponse(res, { message: "Requested reference log empty" }, 404);
+            return;
+        }
+
+        if (operator.role !== "maintainer") {
+            if (existingRecord.reporter_id !== operator.id) {
+                sendResponse(res, { message: "Forbidden: Data ownership violation" }, 403);
+                return;
+            }
+            if (existingRecord.status !== "open") {
+                sendResponse(res, { message: "Conflict: Log locked from non-maintainer update" }, 409);
+                return;
+            }
+            if (req.body.status && req.body.status !== existingRecord.status) {
+                sendResponse(res, { message: "Forbidden: Workflow status can only be managed by maintainers" }, 403);
+                return;
+            }
+        }
+
+        const freshlyUpdatedRecord = await issueService.saveIssueUpdates(id, req.body);
+        sendResponse(res, { message: "Issue details updated successfully", data: freshlyUpdatedRecord });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server fault", error: true }, 500);
+    }
+};
+
+// 5. Delete an issue
+export const deleteIssue = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const id = parseInt(req.params.id as string);
+        const logExists = await issueService.getIssueById(id);
+
+        if (!logExists) {
+            sendResponse(res, { message: "Requested reference log empty" }, 404);
+            return;
+        }
+
+        await issueService.removeIssue(id);
+        sendResponse(res, { message: "Target row permanently erased" });
+    } catch (error) {
+        sendResponse(res, { message: "Internal server fault", error: true }, 500);
+    }
+};
+</file>
+
+<file path="src/api/services/auth.service.ts">
+import { pool } from "../../db";
+import type { UserRole } from "../../types";
+import bcrypt from 'bcryptjs';
+
+class AuthService {
+    async registerUser(name: string, email: string, pass: string, role?: UserRole) {
+        const saltRound = 10;
+        const hash = await bcrypt.hash(pass, saltRound);
+        const userRole = role || "contributor";
+
+        const sql = `
+            INSERT INTO users (name, email, password, role)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, name, email, role, created_at, updated_at;
+        `;
+        const result = await pool.query(sql, [name, email, hash, userRole]);
+        return result.rows[0] || null;
+    }
+
+    async findUserByEmail(email: string) {
+        const result = await pool.query(`SELECT * FROM users WHERE email = $1;`, [email]);
+        return result.rows[0] || null;
+    }
+}
+export default new AuthService();
+</file>
+
+<file path="src/db/index.ts">
+import { Pool } from "pg";
+import config from "../config";
+
+export const pool = new Pool({
+    connectionString: config.database_url,
+});
+
+
+export const initDB = async (): Promise<void> => {
+    try {
+
+        await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role VARCHAR(20) NOT NULL DEFAULT 'contributor',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+`);
+
+        await pool.query(`
+    CREATE TABLE IF NOT EXISTS issues (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(150) NOT NULL,
+        description TEXT NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'open',
+        reporter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+`);
+        console.log("Postgres tables successfully created.");
+    }
+    catch (error) {
+        console.error("Database schema boot failed:", error);
+        process.exit(1);
+    }
+};
+</file>
+
 <file path="vercel.json">
 {
     "version": 2,
@@ -638,49 +667,27 @@ export default app;
 }
 </file>
 
-<file path="src/db/index.ts">
-import { Pool } from "pg";
-import config from "../config";
-
-export const pool = new Pool({
-    connectionString: config.database_url,
-});
-
-
-export const initDB = async (): Promise<void> => {
-    try {
-
-        await pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role VARCHAR(20) NOT NULL DEFAULT 'contributor',
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
-`);
-
-        await pool.query(`
-    CREATE TABLE IF NOT EXISTS issues (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(150) NOT NULL,
-        description TEXT NOT NULL,
-        type VARCHAR(20) NOT NULL,
-        status VARCHAR(20) NOT NULL DEFAULT 'open',
-        reporter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
-`);
-        console.log("Postgres tables successfully created.");
-    }
-    catch (error) {
-        console.error("Database schema boot failed:", error);
-        process.exit(1);
-    }
-};
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "module": "esnext", // 
+    "moduleResolution": "Bundler", // 
+    "target": "esnext",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types"
+    ]
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": []
+}
 </file>
 
 <file path="src/api/controllers/auth.controller.ts">
@@ -768,6 +775,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 import { pool } from "../../db";
 
 class IssueService {
+
+    // 1. Save a new issue to the database
     async createIssue(title: string, description: string, type: string, reporterId: number) {
         const query = `
             INSERT INTO issues (title, description, type, reporter_id)
@@ -778,22 +787,26 @@ class IssueService {
         return result.rows[0];
     }
 
+    // 2. Find a specific issue by its ID
     async getIssueById(id: number) {
         const result = await pool.query(`SELECT * FROM issues WHERE id = $1;`, [id]);
         return result.rows[0] || null;
     }
 
+    // 3. Fetch multiple users from the database in one single batch
     async fetchUsersBatch(ids: number[]) {
         if (ids.length === 0) return [];
-        const uniqueIds = [...new Set(ids)];
+        const uniqueIds = [...new Set(ids)]; // Remove duplicate IDs
         const placeholders = uniqueIds.map((_, i) => `$${i + 1}`).join(",");
 
         const query = `SELECT id, name, role FROM users WHERE id IN (${placeholders});`;
         const result = await pool.query(query, uniqueIds);
         return result.rows;
     }
-    //design scalable linear data scanning for raw issue metrics
+
+    // 4. Get all issues and stitch user data at the application level
     async scanAllIssues(filters: { sort?: string; type?: string; status?: string }): Promise<any[]> {
+        // Build SQL query dynamically based on active filters
         let sqlStatement = `SELECT * FROM issues WHERE 1=1`;
         const parameters: string[] = [];
         let indexOffset = 1;
@@ -812,12 +825,51 @@ class IssueService {
         const sortSequence = filters.sort === "oldest" ? "ASC" : "DESC";
         sqlStatement += ` ORDER BY created_at ${sortSequence};`;
 
+        // Step A: Fetch raw issues from the database
         const queryResult = await pool.query(sqlStatement, parameters);
-        return queryResult.rows;
-    }
-//design flexible database mutation engines for patch requests
+        const rawIssues = queryResult.rows;
 
-async saveIssueUpdates(id: number, activeFields: any): Promise<any> {
+        if (rawIssues.length === 0) return [];
+
+        // Step B: Collect all reporter IDs from the fetched issues
+        const reporterIds = rawIssues.map(issue => issue.reporter_id);
+
+        // Step C: Fetch user profiles for all collected IDs in a single batch
+        const users = await this.fetchUsersBatch(reporterIds);
+
+        // Step D: Create a fast in-memory Hash Map for O(1) user lookups
+        const userMap = new Map<number, any>();
+        users.forEach(user => userMap.set(user.id, user));
+
+        // Step E: Core Data Stitching Layer with defensive null safety
+        const stitchedIssues = rawIssues.map((issue) => {
+            const reporter = userMap.get(issue.reporter_id);
+
+            // Guardrail: Fallback object if a user profile is missing or deleted
+            const reporterData = reporter ? {
+                id: reporter.id,
+                name: reporter.name,
+                role: reporter.role
+            } : {
+                id: issue.reporter_id,
+                name: "Unknown / Disassociated User",
+                role: "N/A"
+            };
+
+            // Omit raw reporter_id field and inject the structural reporter object
+            const { reporter_id, ...issueData } = issue;
+
+            return {
+                ...issueData,
+                reporter: reporterData
+            };
+        });
+
+        return stitchedIssues;
+    }
+
+    // 5. Update dynamic issue fields using dynamic SQL token assignment
+    async saveIssueUpdates(id: number, activeFields: any): Promise<any> {
         const syntaxTokens: string[] = [];
         const argumentValues: any[] = [];
         let variableCounter = 1;
@@ -838,39 +890,14 @@ async saveIssueUpdates(id: number, activeFields: any): Promise<any> {
         return actionResult.rows[0] || null;
     }
 
+    // 6. Delete a specific issue from the database completely
     async removeIssue(id: number): Promise<boolean> {
         const status = await pool.query(`DELETE FROM issues WHERE id = $1;`, [id]);
         return (status.rowCount ?? 0) > 0;
     }
-
 }
-
-
 
 export default new IssueService();
-</file>
-
-<file path="tsconfig.json">
-{
-  "compilerOptions": {
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "module": "esnext", // 
-    "moduleResolution": "Bundler", // 
-    "target": "esnext",
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "typeRoots": [
-      "./node_modules/@types",
-      "./src/types"
-    ]
-  },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": []
-}
 </file>
 
 </files>

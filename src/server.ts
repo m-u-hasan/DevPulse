@@ -2,7 +2,7 @@ import app from "./app";
 import config from "./config";
 import { initDB } from "./db";
 
-
+// Initialize DB tables asynchronously
 initDB()
     .then(() => {
         console.log("Database initialized successfully.");
@@ -11,12 +11,12 @@ initDB()
         console.error("Database initialization failed:", err);
     });
 
-
-if (process.env.NODE_ENV !== "production") {
+// Only run listen in local development mode
+if (config.node_env !== "production") {
     app.listen(config.port, () => {
-        console.log(`Server executing smoothly on ${config.port}`);
+        console.log(`Server executing smoothly on port ${config.port}`);
     });
 }
 
-
+// CRITICAL FOR VERCEL: Export the app object as default handler
 export default app;
