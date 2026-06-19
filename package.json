@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsup",
     "start": "node dist/server.js",
-    "dev": "tsup --watch"
+    "dev": "tsup --watch",
+    "vercel-build": "tsup"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
