@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import issueService from "../services/issue.service";
 import { sendResponse } from "../../utils/sendResponse";
 
+// 1. Create a new issue
 export const createIssue = async (req: Request, res: Response): Promise<void> => {
     try {
         const { title, description, type } = req.body;
@@ -14,9 +15,10 @@ export const createIssue = async (req: Request, res: Response): Promise<void> =>
     }
 };
 
+// 2. Get a single issue by ID
 export const getSingleIssue = async (req: Request, res: Response): Promise<void> => {
     try {
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const issue = await issueService.getIssueById(id);
 
         if (!issue) {
@@ -24,7 +26,8 @@ export const getSingleIssue = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        const users = await issueService.fetchUsersBatch([issue.reporter_id]);
+        const reporterId = issue.reporter_id as number;
+        const users = await issueService.fetchUsersBatch([reporterId]);
         const { reporter_id, ...issueData } = issue;
 
         const payload = {
@@ -38,66 +41,46 @@ export const getSingleIssue = async (req: Request, res: Response): Promise<void>
     }
 };
 
+// 3. Get all issues
 export const getAllIssues = async (req: Request, res: Response): Promise<void> => {
     try {
-        const sortParam = req.query.sort as string | undefined;
-        const typeParam = req.query.type as string | undefined;
-        const statusParam = req.query.status as string | undefined;
+        const sortParam = typeof req.query.sort === "string" ? req.query.sort : undefined;
+        const typeParam = typeof req.query.type === "string" ? req.query.type : undefined;
+        const statusParam = typeof req.query.status === "string" ? req.query.status : undefined;
 
-        const issuesList = await issueService.scanAllIssues({
+        const finalizedResultCollection = await issueService.scanAllIssues({
             sort: sortParam,
             type: typeParam,
             status: statusParam
         });
 
-        const distinctReporterIds = issuesList.map((item: any) => item.reporter_id);
-        const collectiveUsers = await issueService.resolveUsersInBatch(distinctReporterIds);
-
-        const internalUserMap: any = {};
-        collectiveUsers.forEach((individual: any) => { internalUserMap[individual.id] = individual; });
-
-        const finalizedResultCollection = issuesList.map((issueElement: any) => {
-            const { reporter_id, ...baseData } = issueElement;
-            return {
-                ...baseData,
-                reporter: internalUserMap[reporter_id] || null
-            };
-        });
-
-        sendResponse(res, { message: "Filtered issue logs assembled", data: finalizedResultCollection });
+        sendResponse(res, { message: "Filtered issue logs", data: finalizedResultCollection });
     } catch (error) {
         sendResponse(res, { message: "Internal server fault", error: true }, 500);
     }
-
 };
 
-
-
-//introduce secure multi-tier permission checking on mutating operations
+// 4. Update an issue
 export const updateIssue = async (req: Request, res: Response): Promise<void> => {
     try {
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id as string);
         const operator = req.user!;
 
-        const existingRecord = await issueService.fetchIssueById(id);
+        const existingRecord = await issueService.getIssueById(id);
         if (!existingRecord) {
             sendResponse(res, { message: "Requested reference log empty" }, 404);
             return;
         }
 
-        //Requirment check: User contributer as if not maintainer
         if (operator.role !== "maintainer") {
-            //Cant change another users issues
             if (existingRecord.reporter_id !== operator.id) {
                 sendResponse(res, { message: "Forbidden: Data ownership violation" }, 403);
                 return;
             }
-            //Check issue open 
             if (existingRecord.status !== "open") {
                 sendResponse(res, { message: "Conflict: Log locked from non-maintainer update" }, 409);
                 return;
             }
-            //
             if (req.body.status && req.body.status !== existingRecord.status) {
                 sendResponse(res, { message: "Forbidden: Workflow status can only be managed by maintainers" }, 403);
                 return;
@@ -111,10 +94,11 @@ export const updateIssue = async (req: Request, res: Response): Promise<void> =>
     }
 };
 
+// 5. Delete an issue
 export const deleteIssue = async (req: Request, res: Response): Promise<void> => {
     try {
-        const id = parseInt(req.params.id);
-        const logExists = await issueService.fetchIssueById(id);
+        const id = parseInt(req.params.id as string);
+        const logExists = await issueService.getIssueById(id);
 
         if (!logExists) {
             sendResponse(res, { message: "Requested reference log empty" }, 404);
