@@ -44,32 +44,32 @@ var pool = new Pool({
 var initDB = async () => {
   try {
     await pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role VARCHAR(20) NOT NULL DEFAULT 'contributor',
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
-`);
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                role VARCHAR(20) NOT NULL DEFAULT 'contributor',
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        `);
     await pool.query(`
-    CREATE TABLE IF NOT EXISTS issues (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(150) NOT NULL,
-        description TEXT NOT NULL,
-        type VARCHAR(20) NOT NULL,
-        status VARCHAR(20) NOT NULL DEFAULT 'open',
-        reporter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    );
-`);
+            CREATE TABLE IF NOT EXISTS issues (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(150) NOT NULL,
+                description TEXT NOT NULL,
+                type VARCHAR(20) NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'open',
+                reporter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            );
+        `);
     console.log("Postgres tables successfully created.");
   } catch (error) {
     console.error("Database schema boot failed:", error);
-    process.exit(1);
+    throw error;
   }
 };
 
@@ -185,6 +185,7 @@ import { Router as Router2 } from "express";
 
 // src/api/services/issue.service.ts
 var IssueService = class {
+  // 1. Save a new issue to the database
   async createIssue(title, description, type, reporterId) {
     const query = `
             INSERT INTO issues (title, description, type, reporter_id)
@@ -194,10 +195,12 @@ var IssueService = class {
     const result = await pool.query(query, [title, description, type, reporterId]);
     return result.rows[0];
   }
+  // 2. Find a specific issue by its ID
   async getIssueById(id) {
     const result = await pool.query(`SELECT * FROM issues WHERE id = $1;`, [id]);
     return result.rows[0] || null;
   }
+  // 3. Fetch multiple users from the database in one single batch
   async fetchUsersBatch(ids) {
     if (ids.length === 0) return [];
     const uniqueIds = [...new Set(ids)];
@@ -206,7 +209,7 @@ var IssueService = class {
     const result = await pool.query(query, uniqueIds);
     return result.rows;
   }
-  //design scalable linear data scanning for raw issue metrics
+  // 4. Get all issues and stitch user data at the application level
   async scanAllIssues(filters) {
     let sqlStatement = `SELECT * FROM issues WHERE 1=1`;
     const parameters = [];
@@ -224,9 +227,32 @@ var IssueService = class {
     const sortSequence = filters.sort === "oldest" ? "ASC" : "DESC";
     sqlStatement += ` ORDER BY created_at ${sortSequence};`;
     const queryResult = await pool.query(sqlStatement, parameters);
-    return queryResult.rows;
+    const rawIssues = queryResult.rows;
+    if (rawIssues.length === 0) return [];
+    const reporterIds = rawIssues.map((issue) => issue.reporter_id);
+    const users = await this.fetchUsersBatch(reporterIds);
+    const userMap = /* @__PURE__ */ new Map();
+    users.forEach((user) => userMap.set(user.id, user));
+    const stitchedIssues = rawIssues.map((issue) => {
+      const reporter = userMap.get(issue.reporter_id);
+      const reporterData = reporter ? {
+        id: reporter.id,
+        name: reporter.name,
+        role: reporter.role
+      } : {
+        id: issue.reporter_id,
+        name: "Unknown / Disassociated User",
+        role: "N/A"
+      };
+      const { reporter_id, ...issueData } = issue;
+      return {
+        ...issueData,
+        reporter: reporterData
+      };
+    });
+    return stitchedIssues;
   }
-  //design flexible database mutation engines for patch requests
+  // 5. Update dynamic issue fields using dynamic SQL token assignment
   async saveIssueUpdates(id, activeFields) {
     const syntaxTokens = [];
     const argumentValues = [];
@@ -244,6 +270,7 @@ var IssueService = class {
     const actionResult = await pool.query(sql, argumentValues);
     return actionResult.rows[0] || null;
   }
+  // 6. Delete a specific issue from the database completely
   async removeIssue(id) {
     const status = await pool.query(`DELETE FROM issues WHERE id = $1;`, [id]);
     return (status.rowCount ?? 0) > 0;
@@ -270,7 +297,8 @@ var getSingleIssue = async (req, res) => {
       sendResponse(res, { message: "Issue registry not found" }, 404);
       return;
     }
-    const users = await issue_service_default.fetchUsersBatch([issue.reporter_id]);
+    const reporterId = issue.reporter_id;
+    const users = await issue_service_default.fetchUsersBatch([reporterId]);
     const { reporter_id, ...issueData } = issue;
     const payload = {
       ...issueData,
@@ -283,37 +311,33 @@ var getSingleIssue = async (req, res) => {
 };
 var getAllIssues = async (req, res) => {
   try {
-    const sortParam = req.query.sort;
-    const typeParam = req.query.type;
-    const statusParam = req.query.status;
-    const issuesList = await issue_service_default.scanAllIssues({
+    const sortParam = typeof req.query.sort === "string" ? req.query.sort : void 0;
+    const typeParam = typeof req.query.type === "string" ? req.query.type : void 0;
+    const statusParam = typeof req.query.status === "string" ? req.query.status : void 0;
+    const finalizedResultCollection = await issue_service_default.scanAllIssues({
       sort: sortParam,
       type: typeParam,
       status: statusParam
     });
-    const distinctReporterIds = issuesList.map((item) => item.reporter_id);
-    const collectiveUsers = await issue_service_default.resolveUsersInBatch(distinctReporterIds);
-    const internalUserMap = {};
-    collectiveUsers.forEach((individual) => {
-      internalUserMap[individual.id] = individual;
-    });
-    const finalizedResultCollection = issuesList.map((issueElement) => {
-      const { reporter_id, ...baseData } = issueElement;
-      return {
-        ...baseData,
-        reporter: internalUserMap[reporter_id] || null
-      };
-    });
-    sendResponse(res, { message: "Filtered issue logs assembled", data: finalizedResultCollection });
+    sendResponse(res, { message: "Filtered issue logs", data: finalizedResultCollection });
   } catch (error) {
-    sendResponse(res, { message: "Internal server fault", error: true }, 500);
+    console.error("Error in getAllIssues:", error);
+    sendResponse(res, {
+      message: error?.message || "Internal server fault",
+      error: true,
+      data: {
+        message: error?.message,
+        stack: error?.stack,
+        details: error
+      }
+    }, 500);
   }
 };
 var updateIssue = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const operator = req.user;
-    const existingRecord = await issue_service_default.fetchIssueById(id);
+    const existingRecord = await issue_service_default.getIssueById(id);
     if (!existingRecord) {
       sendResponse(res, { message: "Requested reference log empty" }, 404);
       return;
@@ -341,7 +365,7 @@ var updateIssue = async (req, res) => {
 var deleteIssue = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const logExists = await issue_service_default.fetchIssueById(id);
+    const logExists = await issue_service_default.getIssueById(id);
     if (!logExists) {
       sendResponse(res, { message: "Requested reference log empty" }, 404);
       return;
@@ -404,7 +428,7 @@ initDB().then(() => {
 }).catch((err) => {
   console.error("Database initialization failed:", err);
 });
-if (process.env.NODE_ENV !== "production") {
+if (config_default.node_env !== "production") {
   app_default.listen(config_default.port, () => {
     console.log(`Server executing smoothly on ${config_default.port}`);
   });
