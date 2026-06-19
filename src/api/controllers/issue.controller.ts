@@ -56,11 +56,19 @@ export const getAllIssues = async (req: Request, res: Response): Promise<any> =>
         });
 
         sendResponse(res, { message: "Filtered issue logs", data: finalizedResultCollection });
-    }
-
-    catch (error: any) {
+    } catch (error: any) {
         console.error("Error in getAllIssues:", error);
-        sendResponse(res, { message: error?.message || "Internal server fault", error: true }, 500);
+
+
+        sendResponse(res, {
+            message: error?.message || "Internal server fault",
+            error: true,
+            data: {
+                message: error?.message,
+                stack: error?.stack,
+                details: error
+            }
+        }, 500);
     }
 };
 
