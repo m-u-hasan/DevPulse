@@ -42,7 +42,8 @@ export const getSingleIssue = async (req: Request, res: Response): Promise<void>
 };
 
 // 3. Get all issues
-export const getAllIssues = async (req: Request, res: Response): Promise<void> => {
+// 3. Get all issues
+export const getAllIssues = async (req: Request, res: Response): Promise<any> => {
     try {
         const sortParam = typeof req.query.sort === "string" ? req.query.sort : undefined;
         const typeParam = typeof req.query.type === "string" ? req.query.type : undefined;
@@ -56,6 +57,7 @@ export const getAllIssues = async (req: Request, res: Response): Promise<void> =
 
         sendResponse(res, { message: "Filtered issue logs", data: finalizedResultCollection });
     } catch (error) {
+        console.error("Error in getAllIssues:", error);
         sendResponse(res, { message: "Internal server fault", error: true }, 500);
     }
 };
