@@ -1,79 +1,153 @@
-# DevPulse Enterprise Issue Tracker
+# DevPulse - AI-Driven Issue & Bug Tracker Backend
 
-An elite-tier, high-performance, AI-driven asynchronous issue tracking and metrics management system engineered using **Node.js (TypeScript)**, **Express.js**, and raw **PostgreSQL**. 
+Welcome to **DevPulse**! This is a production-ready, highly optimized RESTful API built to track software bugs, issues, and feature requests. 
 
-This system features a highly optimized distributed memory application-level data stitching engine (In-Memory Hash Mapping Architecture) designed to bypass traditional heavy database joins (`SQL JOIN`), enabling lightning-fast operations and linear database scaling.
-
----
-
-## 🚀 Live Environment Architecture
-* **Production Core API URL:** `http://localhost:5000`
-* **API Version:** `v1.0.0`
-* **Environment Status:** Active / Production Ready
+* **Live API URL:** [https://dev-pulse-five-coral.vercel.app](https://dev-pulse-five-coral.vercel.app)
+* **GitHub Repository:** [https://github.com/m-u-hasan/DevPulse](https://github.com/m-u-hasan/DevPulse)
+* **Author:** Md. Mahamud-Ul-Hasan ()
 
 ---
 
-## 🛠️ Tech Stack & Architecture Matrix
-
-### Backend Core Engine
-* **Language Runtime:** TypeScript / Node.js (ES2022 / ESM System)
-* **Application Framework:** Express.js (Strict Typing Configuration)
-* **Execution Watcher:** `tsx` (TypeScript Execute Core)
-
-### Database Infrastructure
-* **Engine:** PostgreSQL 16+ Core
-* **Driver Interface:** `pg` (Node-Postgres Native Driver Pool)
-* **Connection Pooling:** Dynamic Elastic Resource Pool Management
-
-### Security & Optimization Layers
-* **Identity Validation:** JSON Web Token (JWT) asymmetric signature verification
-* **Cryptographic Hashing:** `bcrypt` (Adaptive workload structural salt configuration)
-* **Data Synthesis Engine:** Application-Level Inline Index Memory Stitching ($O(1)$ Hash Map Resolution)
+## Key Features
+* **Secure Auth:** Onboarding with bcrypt password hashing and JSON Web Tokens (JWT).
+* **Role-Based Access:** Enforced route protection for `contributor` and `maintainer` roles.
+* **Smart Pipelines:** Full CRUD lifecycle supporting dynamic sorting and query filters.
+* **Data Stitching:** Application-layer user metadata injection to bypass expensive database JOINs.
+* **Cloud Resiliency:** Tailored for Vercel Serverless Functions paired with Neon Connection Pooling.
 
 ---
 
-## 🔥 Enterprise Engineering Features
-* **Zero-Join Structural Stitching:** Combines normalized issue metrics and user metadata dynamically at the application level via an in-memory memory map, preventing index scan delays on database clusters.
-* **Granular Role-Based Access Control (RBAC):** Rigid separation of operational capabilities between `contributor` and `maintainer` records.
-* **Deterministic Filtering & Sequence Engines:** Bulletproof scan pipelines implementing strict parameters for types, workflow state-machines, and creation timelines.
-* **State & Data Mutability Guardrails:** Contributor records are completely locked from altering system workflow properties (`status`), and mutations are permitted strictly for owned logs that remain in an `open` state.
+## Tech Stack & Architecture
+* **Language/Framework:** TypeScript, Node.js, Express.js (v4.19.2)
+* **Database:** Neon PostgreSQL (Serverless Cloud Postgres)
+* **Compilation/Hosting:** `tsup` bundler, Vercel cloud infrastructure
 
 ---
 
-## 🗄️ Database Schema Topology
+##  Database Schema Summary
 
-The database enforces a clean relational footprint utilizing structured referential integrity without reliance on heavy views or redundant denormalized properties.
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'contributor',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
 
-### 1. `users` Table
-| Column Name  | Data Type  | Constraints / Modifiers |
-| :--- | :--- | :--- |
-| `id` | `SERIAL` | `PRIMARY KEY` |
-| `name` | `VARCHAR(100)` | `NOT NULL` |
-| `email` | `VARCHAR(255)` | `UNIQUE` / `NOT NULL` |
-| `password` | `TEXT` | `NOT NULL` (Bcrypt Encrypted Hash) |
-| `role` | `VARCHAR(20)` | `NOT NULL` / `DEFAULT 'contributor'` |
-| `created_at` | `TIMESTAMP` | `NOT NULL` / `DEFAULT NOW()` |
-| `updated_at` | `TIMESTAMP` | `NOT NULL` / `DEFAULT NOW()` |
-
-### 2. `issues` Table
-| Column Name  | Data Type  | Constraints / Modifiers |
-| :--- | :--- | :--- |
-| `id` | `SERIAL` | `PRIMARY KEY` |
-| `title` | `VARCHAR(150)` | `NOT NULL` |
-| `description`| `TEXT` | `NOT NULL` |
-| `type` | `VARCHAR(20)` | `NOT NULL` (`bug` \| `feature`) |
-| `status` | `VARCHAR(20)` | `NOT NULL` / `DEFAULT 'open'` (`open` \| `in_progress` \| `resolved`) |
-| `reporter_id`| `INT` | `NOT NULL` / `REFERENCES users(id) ON DELETE CASCADE` |
-| `created_at` | `TIMESTAMP` | `NOT NULL` / `DEFAULT NOW()` |
-| `updated_at` | `TIMESTAMP` | `NOT NULL` / `DEFAULT NOW()` |
+CREATE TABLE IF NOT EXISTS issues (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    description TEXT NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'open',
+    reporter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
 
 ---
 
-## ⚙️ Local Infrastructure Setup Steps
+## API Endpoints Specification
 
-Execute these sequential instructions inside your enterprise shell terminal to build the infrastructure layout from base configurations:
+### 1. Authentication Module
 
-### 1. Clone & Access the Directory
+#### A. User Registration
+* **Endpoint:** `POST` `https://dev-pulse-five-coral.vercel.app/api/auth/signup`
+* **Access:** Public
+* **Payload:**
+```json
+{
+  "name": "Md. Mahamud-Ul-Hasan",
+  "email": "web.mahamud@gmail.com",
+  "password": "test123",
+  "role": "contributor"
+}
+```
+
+#### B. User Login
+* **Endpoint:** `POST` `https://dev-pulse-five-coral.vercel.app/api/auth/login`
+* **Access:** Public
+* **Payload:**
+```json
+{
+  "email": "web.mahamud@gmail.com",
+  "password": "test123"
+}
+```
+
+---
+
+### 2. Issues Module
+
+#### A. Create Issue
+* **Endpoint:** `POST` `https://dev-pulse-five-coral.vercel.app/api/issues`
+* **Access:** Authenticated (Bearer Token required)
+* **Payload:**
+```json
+{
+  "title": "JWT verification failing intermittently on serverless edge",
+  "description": "Token signature validation drops under concurrent edge network spikes, throwing 401 unhandled rejections.",
+  "type": "bug"
+}
+```
+
+#### B. Get All Issues (With Filtering & Sorting)
+* **Endpoint:** `GET` `https://dev-pulse-five-coral.vercel.app/api/issues`
+* **Access:** Public
+* **Supported Query Params:** `?sort=newest|oldest&type=bug&status=open`
+
+#### C. Get Single Issue
+* **Endpoint:** `GET` `https://dev-pulse-five-coral.vercel.app/api/issues/:id`
+* **Access:** Public
+
+#### D. Update Issue
+* **Endpoint:** `PATCH` `https://dev-pulse-five-coral.vercel.app/api/issues/:id`
+* **Access:** Maintainer OR Contributor (Own open issues only)
+* **Payload:**
+```json
+{
+  "title": "Fixed: JWT validation pipeline deployment sync",
+  "description": "Refactored secret gateway buffers to preserve clock timestamp margins on cluster restarts.",
+  "type": "bug"
+}
+```
+
+#### E. Delete Issue
+* **Endpoint:** `DELETE` `https://dev-pulse-five-coral.vercel.app/api/issues/:id`
+* **Access:** Maintainer Only
+
+---
+
+## Local Setup & Installation
+### 1. Clone & Install Dependencies
 ```bash
-git clone <your-repository-url>
-cd devpulse
+git clone [https://github.com/m-u-hasan/DevPulse.git](https://github.com/m-u-hasan/DevPulse.git)
+cd DevPulse
+npm install
+```
+
+### 2. Configure Environment Variables
+Create a `.env` file in the root directory:
+```env
+PORT=5000
+NODE_ENV=development
+DATABASE_URL=your_neon_postgresql_pooler_url
+JWT_SECRET=your_jwt_secret_passphrase
+```
+
+### 3. Local Development & Deployment
+```bash
+# Start development watch loop
+npm run dev
+
+# Compile distribution bundle
+npm run build
+
+# Push straight into production cloud infrastructure
+vercel --prod
+```
+
