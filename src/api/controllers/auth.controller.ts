@@ -22,7 +22,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        sendResponse(res, { message: "Account created successfully", data: registeredProfile }, 201);
+        sendResponse(res, { message: "User registered successfully", data: registeredProfile }, 201);
     } catch (error) {
         console.error("SIGNUP RUNTIME CRASH:", error);
         sendResponse(res, {
@@ -63,7 +63,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         const { password: _, ...securedUserOutput } = identityMatch;
 
         sendResponse(res, {
-            message: "Authentication tokens dispatched",
+            message: "Login successful",
             data: { token, user: securedUserOutput }
         });
     } catch (error: any) {

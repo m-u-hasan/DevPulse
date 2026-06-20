@@ -9,7 +9,7 @@ export const createIssue = async (req: Request, res: Response): Promise<void> =>
         const reporterId = req.user!.id;
 
         const issue = await issueService.createIssue(title, description, type, reporterId);
-        sendResponse(res, { message: "Issue logged successfully", data: issue }, 201);
+        sendResponse(res, { message: "Issue created successfully", data: issue }, 201);
     } catch (error) {
         sendResponse(res, { message: "Internal server error", error: true }, 500);
     }
@@ -35,7 +35,7 @@ export const getSingleIssue = async (req: Request, res: Response): Promise<void>
             reporter: users[0] || null
         };
 
-        sendResponse(res, { message: "Issue data compiled successfully", data: payload });
+        sendResponse(res, { message: "Issues retrived successfully", data: payload });
     } catch (error) {
         sendResponse(res, { message: "Internal server error", error: true }, 500);
     }
@@ -55,7 +55,7 @@ export const getAllIssues = async (req: Request, res: Response): Promise<any> =>
             status: statusParam
         });
 
-        sendResponse(res, { message: "Filtered issue logs", data: finalizedResultCollection });
+        sendResponse(res, { message: "Issues retrived successfully", data: finalizedResultCollection });
     } catch (error: any) {
         console.error("Error in getAllIssues:", error);
 
@@ -100,7 +100,7 @@ export const updateIssue = async (req: Request, res: Response): Promise<void> =>
         }
 
         const freshlyUpdatedRecord = await issueService.saveIssueUpdates(id, req.body);
-        sendResponse(res, { message: "Issue details updated successfully", data: freshlyUpdatedRecord });
+        sendResponse(res, { message: "Issue updated successfully", data: freshlyUpdatedRecord });
     } catch (error) {
         sendResponse(res, { message: "Internal server fault", error: true }, 500);
     }
@@ -118,7 +118,7 @@ export const deleteIssue = async (req: Request, res: Response): Promise<void> =>
         }
 
         await issueService.removeIssue(id);
-        sendResponse(res, { message: "Target row permanently erased" });
+        sendResponse(res, { message: "Issue deleted successfully" });
     } catch (error) {
         sendResponse(res, { message: "Internal server fault", error: true }, 500);
     }
